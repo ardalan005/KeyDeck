@@ -30,6 +30,7 @@ public class MainActivity extends Activity {
         }
     }
     static final Theme[] TH = {
+        new Theme("Classic Black", 0xFF101114, 0xFF1A1B20, 0xFF202228, 0xFFF2F2F2, 0xFF2B2D34, 0xFF3DA9FC, false),
         new Theme("Neon Night", 0xFF0B0F1A, 0xFF1B1245, 0xFF1B2340, 0xFFE8EEFC, 0xFF2A3466, 0xFF22D3EE, true),
         new Theme("Aurora", 0xFF04201F, 0xFF0B3D3A, 0xFF0F3A38, 0xFFE0FFF6, 0xFF14524E, 0xFF34D399, false),
         new Theme("Sunset", 0xFF2A0F2E, 0xFF4A1D1D, 0xFF3D1F3A, 0xFFFFE9E0, 0xFF5A2A3F, 0xFFFF7A59, false),
@@ -46,7 +47,7 @@ public class MainActivity extends Activity {
     };
 
     static class K {
-        String l, s, act; int vk, kind, idx, st, pend; float u, x, y, w, h; boolean on, rep; long t0, t1;
+        String l, s, act, fl; int vk, kind, idx, st, pend, sc, fsc; float u, x, y, w, h, x2, y2, w2, h2; boolean on, rep, useFn, fnKey; long t0, t1;
         K(String l, String s, int vk, float u, int kind) { this.l = l; this.s = s; this.vk = vk; this.u = u; this.kind = kind; }
     }
 
@@ -198,7 +199,7 @@ public class MainActivity extends Activity {
     class KbView extends View {
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG), t = new Paint(Paint.ANTI_ALIAS_FLAG); RectF rf = new RectF(), r2 = new RectF(); Path pa = new Path();
         List<List<K>> rows = new ArrayList<List<K>>(); List<K> all = new ArrayList<K>(), top = new ArrayList<K>(), deck = new ArrayList<K>(), mods = new ArrayList<K>();
-        K chip, slider; final float[] RH = {.9f, 1, 1, 1, 1, 1};
+        K chip, slider, enter, fnKey; final float[] RH = {.85f, 1, 1, 1, 1, 1};
         HashMap<Integer, K> act = new HashMap<Integer, K>(); HashMap<Integer, Float> lx = new HashMap<Integer, Float>(); HashMap<Integer, Runnable> reps = new HashMap<Integer, Runnable>();
         HashSet<Integer> fired = new HashSet<Integer>(); Handler h = new Handler(Looper.getMainLooper());
         int th, hue; boolean hap; float vol = .5f, ux, uy, ox, oy, sacc; Shader bgs; String[][] dk = new String[10][3];
@@ -214,6 +215,7 @@ public class MainActivity extends Activity {
         void setTheme(int i) { th = i; sp.edit().putInt("th", i).apply(); makeBg(); invalidate(); }
         void setHue(int v) { hue = v; sp.edit().putInt("hue", v).apply(); invalidate(); }
         void makeBg() { if (getHeight() > 0) bgs = new LinearGradient(0, 0, 0, getHeight(), TH[th].bg1, TH[th].bg2, Shader.TileMode.CLAMP); }
+        boolean fnOn() { return fnKey != null && (fnKey.st > 0 || fnKey.on); }
 
         void loadDeck() {
             for (int i = 0; i < 10; i++) dk[i] = DEF[i].clone();
@@ -230,43 +232,52 @@ public class MainActivity extends Activity {
             } catch (Exception e) { }
         }
         K a(List<K> r, String l, String s, int vk, float u, int kind) { K k = new K(l, s, vk, u, kind); r.add(k); all.add(k); if (kind == 1) mods.add(k); return k; }
+        K s(List<K> r, String l, String sub, int sc, float u, int kind) { K k = a(r, l, sub, 0, u, kind); k.sc = sc; return k; }
+        K f(K k, int fsc, String fl) { k.fsc = fsc; k.fl = fl; return k; }
         void g(List<K> r, float u) { r.add(new K(null, null, 0, u, -1)); }
         void build() {
-            List<K> r = new ArrayList<K>();
-            a(r, "Esc", null, 0x1B, 1, 7); g(r, 1);
-            for (int i = 0; i < 12; i++) { a(r, "F" + (i + 1), null, 0x70 + i, 1, 7); if (i == 3 || i == 7) g(r, .5f); }
-            g(r, .25f); a(r, "PrtSc", null, 0x2C, 1, 7); a(r, "ScrLk", null, 0x91, 1, 7); a(r, "Pause", null, 0x13, 1, 7); rows.add(r);
-            int[] nv = {0xC0, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0xBD, 0xBB}; String nl = "`1234567890-=", ns = "~!@#$%^&*()_+";
-            r = new ArrayList<K>(); for (int i = 0; i < 13; i++) a(r, "" + nl.charAt(i), "" + ns.charAt(i), nv[i], 1, 0);
-            a(r, "Backspace", null, 8, 2, 7); g(r, .25f); a(r, "Ins", null, 0x2D, 1, 7); a(r, "Home", null, 0x24, 1, 7); a(r, "PgUp", null, 0x21, 1, 7); rows.add(r);
-            r = new ArrayList<K>(); a(r, "Tab", null, 9, 1.5f, 7); String q = "QWERTYUIOP"; for (int i = 0; i < 10; i++) a(r, "" + q.charAt(i), null, q.charAt(i), 1, 0);
-            a(r, "[", "{", 0xDB, 1, 0); a(r, "]", "}", 0xDD, 1, 0); a(r, "\\", "|", 0xDC, 1.5f, 0); g(r, .25f);
-            a(r, "Del", null, 0x2E, 1, 7); a(r, "End", null, 0x23, 1, 7); a(r, "PgDn", null, 0x22, 1, 7); rows.add(r);
-            r = new ArrayList<K>(); a(r, "Caps", null, 0x14, 1.75f, 7); String s2 = "ASDFGHJKL"; for (int i = 0; i < 9; i++) a(r, "" + s2.charAt(i), null, s2.charAt(i), 1, 0);
-            a(r, ";", ":", 0xBA, 1, 0); a(r, "'", "\"", 0xDE, 1, 0); a(r, "Enter", null, 13, 2.25f, 7); g(r, 3.25f); rows.add(r);
-            r = new ArrayList<K>(); a(r, "Shift", null, 0xA0, 2.25f, 1); String z = "ZXCVBNM"; for (int i = 0; i < 7; i++) a(r, "" + z.charAt(i), null, z.charAt(i), 1, 0);
-            a(r, ",", "<", 0xBC, 1, 0); a(r, ".", ">", 0xBE, 1, 0); a(r, "/", "?", 0xBF, 1, 0); a(r, "Shift", null, 0xA1, 2.75f, 1); g(r, 1.25f); a(r, "\u2191", null, 0x26, 1, 7); g(r, 1); rows.add(r);
-            r = new ArrayList<K>(); a(r, "Ctrl", null, 0xA2, 1.25f, 1); a(r, "Win", null, 0x5B, 1.25f, 1); a(r, "Alt", null, 0xA4, 1.25f, 1); a(r, "", null, 0x20, 6.25f, 0);
-            a(r, "Alt", null, 0xA5, 1.25f, 1); a(r, "Win", null, 0x5C, 1.25f, 1); a(r, "Menu", null, 0x5D, 1.25f, 7); a(r, "Ctrl", null, 0xA3, 1.25f, 1); g(r, .25f);
-            a(r, "\u2190", null, 0x25, 1, 7); a(r, "\u2193", null, 0x28, 1, 7); a(r, "\u2192", null, 0x27, 1, 7); rows.add(r);
-            chip = a(top, "", null, 0, 4.4f, 3); chip.act = "conn"; g(top, .65f);
-            a(top, "", null, 0xB1, 1.2f, 2); a(top, "", null, 0xB3, 1.2f, 2); a(top, "", null, 0xB0, 1.2f, 2); a(top, "", null, 0xAD, 1.2f, 2); g(top, .3f);
-            a(top, "", null, 0xAE, 1.2f, 2).rep = true; slider = a(top, "", null, 0, 3.4f, 5); a(top, "", null, 0xAF, 1.2f, 2).rep = true; g(top, .3f);
-            K tb = a(top, "THEME", null, 0, 2.0f, 3); tb.act = "theme";
+            List<K> r = new ArrayList<K>(); float fw = 14.15f / 15f;
+            s(r, "Esc", null, 0x01, 1, 7);
+            int[] fs = {0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x40, 0x41, 0x42, 0x43, 0x44, 0x57, 0x58};
+            for (int i = 0; i < 12; i++) { K k = s(r, "F" + (i + 1), null, fs[i], fw, 7); if (i == 9) f(k, 0x46, "ScrLk"); }
+            s(r, "PrtSc", null, 0x137, fw, 7); a(r, "NumLk", null, 0x90, fw, 7); a(r, "Pause", null, 0x13, fw, 7); s(r, "Del", null, 0x153, 1.25f, 7); rows.add(r);
+            r = new ArrayList<K>(); s(r, "`", "\u00AC", 0x29, 1, 0);
+            String nd = "1234567890", ns = "!\"\u00A3$%^&*()"; int[] nf = {0, 0, 0, 0, 0, 0, 0x47, 0x48, 0x49, 0x37}; String[] nl = {null, null, null, null, null, null, "7", "8", "9", "*"};
+            for (int i = 0; i < 10; i++) { K k = s(r, "" + nd.charAt(i), "" + ns.charAt(i), 0x02 + i, 1, 0); if (nf[i] != 0) f(k, nf[i], nl[i]); }
+            s(r, "-", "_", 0x0C, 1, 0); s(r, "=", "+", 0x0D, 1, 0); s(r, "Backspace", null, 0x0E, 2.15f, 7); s(r, "Home", null, 0x147, 1.25f, 7); rows.add(r);
+            r = new ArrayList<K>(); s(r, "Tab", null, 0x0F, 1.5f, 7); String q = "QWERTYUIOP"; int[] qf = {0, 0, 0, 0, 0, 0, 0x4B, 0x4C, 0x4D, 0x4A}; String[] ql = {null, null, null, null, null, null, "4", "5", "6", "-"};
+            for (int i = 0; i < 10; i++) { K k = s(r, "" + q.charAt(i), null, 0x10 + i, 1, 0); if (qf[i] != 0) f(k, qf[i], ql[i]); }
+            s(r, "[", "{", 0x1A, 1, 0); s(r, "]", "}", 0x1B, 1, 0); enter = s(r, "Enter", null, 0x1C, 1.65f, 7); s(r, "PgUp", null, 0x149, 1.25f, 7); rows.add(r);
+            r = new ArrayList<K>(); s(r, "Caps Lock", null, 0x3A, 1.75f, 7); String s2 = "ASDFGHJKL"; String[] jl = {null, null, null, null, null, null, "1", "2", "3"}; int[] jf = {0, 0, 0, 0, 0, 0, 0x4F, 0x50, 0x51};
+            for (int i = 0; i < 9; i++) { K k = s(r, "" + s2.charAt(i), null, 0x1E + i, 1, 0); if (jf[i] != 0) f(k, jf[i], jl[i]); }
+            f(s(r, ";", ":", 0x27, 1, 0), 0x4E, "+"); s(r, "'", "@", 0x28, 1, 0); s(r, "#", "~", 0x2B, 1, 0); g(r, 1.4f); s(r, "PgDn", null, 0x151, 1.25f, 7); rows.add(r);
+            r = new ArrayList<K>(); s(r, "Shift", null, 0x2A, 1.25f, 1); s(r, "\\", "|", 0x56, 1, 0); String z = "ZXCVBNM";
+            for (int i = 0; i < 7; i++) { K k = s(r, "" + z.charAt(i), null, 0x2C + i, 1, 0); if (i == 6) f(k, 0x52, "0"); }
+            s(r, ",", "<", 0x33, 1, 0); f(s(r, ".", ">", 0x34, 1, 0), 0x53, "."); f(s(r, "/", "?", 0x35, 1, 0), 0x135, "/");
+            s(r, "Shift", null, 0x36, 1.9f, 1); s(r, "\u2191", null, 0x148, 1, 7); s(r, "End", null, 0x14F, 1.25f, 7); rows.add(r);
+            r = new ArrayList<K>(); s(r, "Ctrl", null, 0x1D, 1.25f, 1); fnKey = s(r, "FN", null, 0, 1, 1); fnKey.fnKey = true; s(r, "Win", null, 0x15B, 1, 1); s(r, "Alt", null, 0x38, 1.25f, 1);
+            s(r, "", null, 0x39, 4.65f, 0); s(r, "Alt", null, 0x138, 1, 1); s(r, "Menu", null, 0x15D, 1, 7); s(r, "Ctrl", null, 0x11D, 1, 1); s(r, "Insert", null, 0x152, 1, 7);
+            s(r, "\u2190", null, 0x14B, 1, 7); s(r, "\u2193", null, 0x150, 1, 7); s(r, "\u2192", null, 0x14D, 1.25f, 7); rows.add(r);
+            chip = a(top, "", null, 0, 4.0f, 3); chip.act = "conn"; g(top, .3f);
+            a(top, "", null, 0xB1, 1.1f, 2); a(top, "", null, 0xB3, 1.1f, 2); a(top, "", null, 0xB0, 1.1f, 2); a(top, "", null, 0xAD, 1.1f, 2); g(top, .3f);
+            a(top, "", null, 0xAE, 1.1f, 2).rep = true; slider = a(top, "", null, 0, 2.9f, 5); a(top, "", null, 0xAF, 1.1f, 2).rep = true; g(top, .3f);
+            K tb = a(top, "THEME", null, 0, 1.9f, 3); tb.act = "theme";
             for (int i = 0; i < 10; i++) { K k = new K("", null, 0, 1, 4); k.idx = i; deck.add(k); }
         }
         @Override protected void onSizeChanged(int W, int H, int ow, int oh) {
-            float pad = W * 0.012f, kw = 18.25f; ux = (W - 2 * pad) / kw; uy = Math.min(H / 10.3f, ux * 1.05f);
-            float tw = kw * ux; ox = (W - tw) / 2; oy = (H - 10.3f * uy) / 2;
-            float x = ox; for (K k : top) { k.x = x; k.y = oy + .3f * uy; k.w = k.u * ux; k.h = 1.2f * uy; x += k.w; }
-            float y = oy + 1.85f * uy;
+            float pad = W * 0.01f, kw = 16.4f; ux = (W - 2 * pad) / kw; uy = Math.min(H / 8.8f, ux * 1.18f);
+            float tw = kw * ux; ox = (W - tw) / 2; oy = (H - 8.8f * uy) / 2;
+            float y = oy + .2f * uy, gp = .12f * ux, bw = (tw - 9 * gp) / 10;
+            for (int i = 0; i < 10; i++) { K k = deck.get(i); k.x = ox + i * (bw + gp); k.y = y; k.w = bw; k.h = 1.05f * uy; }
+            y += 1.3f * uy; float[] ry = new float[rows.size()];
             for (int ri = 0; ri < rows.size(); ri++) {
-                x = ox; float rh = RH[ri] * uy;
+                float x = ox, rh = RH[ri] * uy; ry[ri] = y;
                 for (K k : rows.get(ri)) { k.x = x; k.y = y; k.w = k.u * ux; k.h = rh; x += k.w; }
-                y += rh; if (ri == 0) y += .35f * uy;
+                y += rh; if (ri == 0) y += .15f * uy;
             }
-            float gp = .12f * ux, bw = (tw - 9 * gp) / 10, dy = y + .4f * uy;
-            for (int i = 0; i < 10; i++) { K k = deck.get(i); k.x = ox + i * (bw + gp); k.y = dy; k.w = bw; k.h = 1.5f * uy; }
+            enter.x2 = ox + 13.75f * ux; enter.y2 = ry[3]; enter.w2 = 1.4f * ux; enter.h2 = RH[3] * uy;
+            y += .25f * uy; float x = ox;
+            for (K k : top) { k.x = x; k.y = y; k.w = k.u * ux; k.h = .85f * uy; x += k.w; }
             makeBg();
         }
         void txt(Canvas c, String s, float cx, float cy, float maxW, float size, int col, Paint.Align al) {
@@ -289,11 +300,18 @@ public class MainActivity extends Activity {
                 else { c.drawLine(cx + s * .5f, cy - s * .35f, cx + s * 1.05f, cy + s * .35f, p); c.drawLine(cx + s * .5f, cy + s * .35f, cx + s * 1.05f, cy - s * .35f, p); }
             }
         }
+        void shape(Canvas c, K k, float m, float r) {
+            if (k == enter) {
+                float xl = k.x + m, xr = k.x + k.w - m, yt = k.y + m, ym = k.y + k.h, yb = k.y2 + k.h2 - m, xl2 = k.x2 + m;
+                pa.reset(); pa.moveTo(xl, yt); pa.lineTo(xr, yt); pa.lineTo(xr, yb); pa.lineTo(xl2, yb); pa.lineTo(xl2, ym); pa.lineTo(xl, ym); pa.close();
+                p.setPathEffect(new CornerPathEffect(r)); c.drawPath(pa, p); p.setPathEffect(null);
+            } else c.drawRoundRect(rf, r, r, p);
+        }
         void drawK(Canvas c, K k, Theme T, int ac) {
-            float m = Math.min(k.w, k.h) * .07f; rf.set(k.x + m, k.y + m, k.x + k.w - m, k.y + k.h - m); float r = Math.min(rf.width(), rf.height()) * .2f;
-            boolean hi = k.on || k.st > 0; int fill = hi ? ac : (k.kind == 0 ? T.key : T.mod);
-            p.setStyle(Paint.Style.FILL); p.setColor(fill); c.drawRoundRect(rf, r, r, p);
-            if (T.glow) { p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(dp(1.4f)); p.setColor(((hi ? 0xFFFFFFFF : ac) & 0x00FFFFFF) | 0xAA000000); c.drawRoundRect(rf, r, r, p); p.setStyle(Paint.Style.FILL); }
+            float m = Math.min(k.w, k.h) * .06f; rf.set(k.x + m, k.y + m, k.x + k.w - m, k.y + k.h - m); float r = Math.min(rf.width(), rf.height()) * .16f;
+            boolean fn = fnOn(), hi = k.on || k.st > 0; int fill = hi ? ac : (k.kind == 0 ? T.key : T.mod);
+            p.setStyle(Paint.Style.FILL); p.setColor(fill); shape(c, k, m, r);
+            if (T.glow) { p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(dp(1.4f)); p.setColor(((hi ? 0xFFFFFFFF : ac) & 0x00FFFFFF) | 0xAA000000); shape(c, k, m, r); p.setStyle(Paint.Style.FILL); }
             int tc = hi ? (lum(ac) > .6f ? 0xFF101010 : 0xFFFFFFFF) : T.tx; float cx = k.x + k.w / 2, cy = k.y + k.h / 2;
             if (k.kind == 2) { icon(c, k.vk, cx, cy, k.h * .26f, hi ? tc : ac); return; }
             if (k.kind == 5) {
@@ -303,11 +321,14 @@ public class MainActivity extends Activity {
             }
             if (k.act != null && k.act.equals("conn")) {
                 p.setColor(link.ok ? 0xFF34D399 : 0xFFFBBF24); c.drawCircle(k.x + k.h * .5f, cy, k.h * .13f, p);
-                String md = sp.getString("mode", "wifi"); txt(c, (md.equals("usb") ? "USB" : md.equals("bt") ? "Bluetooth" : "Wi-Fi") + " - " + link.status, k.x + k.h * .8f, cy, k.w - k.h, k.h * .3f, T.tx, Paint.Align.LEFT); return;
+                String md = sp.getString("mode", "wifi"); txt(c, (md.equals("usb") ? "USB" : md.equals("bt") ? "Bluetooth" : "Wi-Fi") + " - " + link.status, k.x + k.h * .8f, cy, k.w - k.h, k.h * .32f, T.tx, Paint.Align.LEFT); return;
             }
+            if (k.fnKey) tc = hi ? tc : ac;
             if (k.l.length() == 0) return;
-            if (k.s != null) { txt(c, k.s, cx, k.y + k.h * .33f, k.w * .7f, k.h * .26f, hi ? tc : (T.tx & 0x00FFFFFF) | 0x99000000, Paint.Align.CENTER); txt(c, k.l, cx, k.y + k.h * .68f, k.w * .8f, k.h * .36f, tc, Paint.Align.CENTER); }
-            else txt(c, k.l, cx, cy, k.w * .82f, k.h * (k.kind == 0 ? .4f : .3f), tc, Paint.Align.CENTER);
+            if (fn && k.fl != null && !hi) { txt(c, k.fl, cx, cy, k.w * .8f, k.h * .5f, ac, Paint.Align.CENTER); return; }
+            if (k.s != null) { txt(c, k.s, cx, k.y + k.h * .33f, k.w * .7f, k.h * .26f, hi ? tc : (T.tx & 0x00FFFFFF) | 0x99000000, Paint.Align.CENTER); txt(c, k.l, cx, k.y + k.h * .68f, k.w * .8f, k.h * .34f, tc, Paint.Align.CENTER); }
+            else txt(c, k.l, cx, cy, k.w * .82f, k.h * (k.kind == 0 ? .4f : .27f), tc, Paint.Align.CENTER);
+            if (k.fl != null && !fn) txt(c, k.fl, k.x + k.w - k.w * .12f, k.y + k.h * .8f, k.w * .3f, k.h * .2f, (ac & 0x00FFFFFF) | 0xE0000000, Paint.Align.RIGHT);
             if (k.st == 2) { p.setColor(tc); c.drawRect(cx - k.w * .15f, k.y + k.h * .85f, cx + k.w * .15f, k.y + k.h * .88f, p); }
         }
         @Override protected void onDraw(Canvas c) {
@@ -320,13 +341,18 @@ public class MainActivity extends Activity {
                 p.setStyle(Paint.Style.FILL); p.setColor(k.on ? sc : T.key); c.drawRoundRect(rf, r, r, p);
                 r2.set(rf.left, rf.top, rf.right, rf.top + rf.height() * .13f); p.setColor(sc); c.drawRoundRect(r2, r, r, p);
                 if (T.glow) { p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(dp(1.4f)); p.setColor((sc & 0x00FFFFFF) | 0xAA000000); c.drawRoundRect(rf, r, r, p); }
-                txt(c, dk[k.idx][0], k.x + k.w / 2, k.y + k.h * .58f, k.w * .85f, k.h * .26f, k.on ? (lum(sc) > .6f ? 0xFF101010 : 0xFFFFFFFF) : T.tx, Paint.Align.CENTER);
+                txt(c, dk[k.idx][0], k.x + k.w / 2, k.y + k.h * .58f, k.w * .85f, k.h * .3f, k.on ? (lum(sc) > .6f ? 0xFF101010 : 0xFFFFFFFF) : T.tx, Paint.Align.CENTER);
             }
         }
         void buzz() { if (hap) performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP); }
         void sendKey(int vk, boolean d) {
             link.send("K " + vk + (d ? " d" : " u"));
             if (d && vk == 0xAF) vol = Math.min(1f, vol + .02f); if (d && vk == 0xAE) vol = Math.max(0f, vol - .02f);
+        }
+        void sendK(K k, boolean d) {
+            if (k.fnKey) return;
+            int code = (k.useFn && k.fsc != 0) ? k.fsc : k.sc;
+            if (code != 0) link.send("S " + code + (d ? " d" : " u")); else if (k.vk != 0) sendKey(k.vk, d);
         }
         void volKey(boolean up) { sendKey(up ? 0xAF : 0xAE, true); sendKey(up ? 0xAF : 0xAE, false); }
         int vkOf(String s) {
@@ -349,21 +375,23 @@ public class MainActivity extends Activity {
             } else if (d[1].equals("run")) link.send("X " + d[2].replace("\n", " "));
             else link.send("T " + d[2].replace("\n", " "));
         }
-        void releaseLatched() { for (K k : mods) if (k.st == 1) { sendKey(k.vk, false); k.st = 0; } }
+        void releaseLatched() { for (K k : mods) if (k.st == 1) { sendK(k, false); k.st = 0; } }
         void startRep(final int id, final K k) {
-            Runnable r = new Runnable() { public void run() { if (k.on && act.get(id) == k) { sendKey(k.vk, true); h.postDelayed(this, 38); } } };
+            Runnable r = new Runnable() { public void run() { if (k.on && act.get(id) == k) { sendK(k, true); h.postDelayed(this, 38); } } };
             reps.put(id, r); h.postDelayed(r, 420);
         }
+        boolean in(float a, float b, float w, float hh, float x, float y) { return x >= a && x < a + w && y >= b && y < b + hh; }
+        boolean inK(K k, float x, float y) { return in(k.x, k.y, k.w, k.h, x, y) || (k.w2 > 0 && in(k.x2, k.y2, k.w2, k.h2, x, y)); }
         K hit(float x, float y) {
-            for (K k : all) if (k.kind >= 0 && x >= k.x && x < k.x + k.w && y >= k.y && y < k.y + k.h) return k;
-            for (K k : deck) if (x >= k.x && x < k.x + k.w && y >= k.y && y < k.y + k.h) return k;
+            for (K k : all) if (k.kind >= 0 && inK(k, x, y)) return k;
+            for (K k : deck) if (inK(k, x, y)) return k;
             return null;
         }
         void down(final int id, float x, float y) {
             K k = hit(x, y); if (k == null) return; act.put(id, k); k.on = true; long now = SystemClock.uptimeMillis(); buzz();
-            if (k.kind == 0 || k.kind == 2 || k.kind == 7) { sendKey(k.vk, true); if (k.kind != 2 || k.rep) startRep(id, k); }
+            if (k.kind == 0 || k.kind == 2 || k.kind == 7) { k.useFn = fnOn(); sendK(k, true); if (k.kind != 2 || k.rep) startRep(id, k); }
             else if (k.kind == 1) {
-                if (k.st == 0) { sendKey(k.vk, true); k.pend = 1; k.t0 = now; } else if (k.st == 1) k.pend = (now - k.t1 < 450) ? 2 : 3; else k.pend = 3;
+                if (k.st == 0) { sendK(k, true); k.pend = 1; k.t0 = now; } else if (k.st == 1) k.pend = (now - k.t1 < 450) ? 2 : 3; else k.pend = 3;
             } else if (k.kind == 5) lx.put(id, x);
             else if (k.kind == 4) {
                 final int i = k.idx; Runnable r = new Runnable() { public void run() { fired.add(id); editDeck(i); } }; reps.put(id, r); h.postDelayed(r, 550);
@@ -374,14 +402,14 @@ public class MainActivity extends Activity {
             if (k.kind == 5) {
                 float d = x - lx.get(id); lx.put(id, x); sacc += d; float st = Math.max(4f, slider.w / 50f);
                 while (sacc >= st) { volKey(true); sacc -= st; } while (sacc <= -st) { volKey(false); sacc += st; }
-            } else if ((k.kind == 0 || k.kind == 2 || k.kind == 7) && !(x >= k.x && x < k.x + k.w && y >= k.y && y < k.y + k.h)) up(id);
+            } else if ((k.kind == 0 || k.kind == 2 || k.kind == 7) && !inK(k, x, y)) up(id);
         }
         void up(int id) {
             K k = act.remove(id); if (k == null) return; k.on = false; Runnable r = reps.remove(id); if (r != null) h.removeCallbacks(r); long now = SystemClock.uptimeMillis();
-            if (k.kind == 0 || k.kind == 2 || k.kind == 7) { sendKey(k.vk, false); if (k.kind == 0) releaseLatched(); }
+            if (k.kind == 0 || k.kind == 2 || k.kind == 7) { sendK(k, false); if (k.kind == 0) releaseLatched(); }
             else if (k.kind == 1) {
-                if (k.pend == 1) { if (now - k.t0 >= 300) { sendKey(k.vk, false); k.st = 0; } else { k.st = 1; k.t1 = now; } }
-                else if (k.pend == 2) k.st = 2; else if (k.pend == 3) { sendKey(k.vk, false); k.st = 0; }
+                if (k.pend == 1) { if (now - k.t0 >= 300) { sendK(k, false); k.st = 0; } else { k.st = 1; k.t1 = now; } }
+                else if (k.pend == 2) k.st = 2; else if (k.pend == 3) { sendK(k, false); k.st = 0; }
                 k.pend = 0;
             } else if (k.kind == 3) { if ("conn".equals(k.act)) connDialog(); else themeDialog(); }
             else if (k.kind == 4) { if (!fired.remove(id)) runDeck(dk[k.idx]); }
