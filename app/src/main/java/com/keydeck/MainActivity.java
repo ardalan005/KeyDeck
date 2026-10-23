@@ -46,8 +46,15 @@ public class MainActivity extends Activity {
         {"Browser", "run", "https://www.google.com"}, {"Files", "run", "explorer"}, {"Calc", "run", "calc"}
     };
 
+    static final int[] LSC = {0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1E, 0x1F, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x56};
+    static final String[] AR_N = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "\u0636", "\u0635", "\u062B", "\u0642", "\u0641", "\u063A", "\u0639", "\u0647", "\u062E", "\u062D", "\u062C", "\u062F", "\u0634", "\u0633", "\u064A", "\u0628", "\u0644", "\u0627", "\u062A", "\u0646", "\u0645", "\u0643", "\u0637", "\u0630", "\\", "\u0626", "\u0621", "\u0624", "\u0631", "\u0644\u0627", "\u0649", "\u0629", "\u0648", "\u0632", "\u0638", "\\"};
+    static final String[] AR_S = {"!", "@", "#", "$", "%", "^", "&", "*", ")", "(", "_", "+", "\u064E", "\u064B", "\u064F", "\u064C", "\u0644\u0625", "\u0625", "\u2018", "\u00F7", "\u00D7", "\u061B", "<", ">", "\u0650", "\u064D", "]", "[", "\u0644\u0623", "\u0623", "\u0640", "\u060C", "/", ":", "\"", "\u0651", "|", "~", "\u0652", "}", "{", "\u0644\u0622", "\u0622", "\u2019", ",", ".", "\u061F", "|"};
+    static final String[] KU_N = {"\u0661", "\u0662", "\u0663", "\u0664", "\u0665", "\u0666", "\u0667", "\u0668", "\u0669", "\u0660", "-", "=", "\u0642", "\u0648", "\u06D5", "\u0631", "\u062A", "\u06CC", "\u0626", "\u062D", "\u06C6", "\u067E", "]", "[", "\u0627", "\u0633", "\u062F", "\u0641", "\u06AF", "\u0647", "\u0698", "\u06A9", "\u0644", "\u061B", "'", "`", "\\", "\u0632", "\u062E", "\u062C", "\u06A4", "\u0628", "\u0646", "\u0645", "\u060C", ".", "/", "\\"};
+    static final String[] KU_S = {"!", "@", "#", "$", "\u066A", "^", "&", "*", ")", "(", "_", "+", "`", "\u0648\u0648", "\u064A", "\u0695", "\u0637", "\u06CE", "\u0621", "\u0639", "\u0624", "\u062B", "}", "{", "\u0622", "\u0634", "\u0630", "\u0625", "\u063A", "\u200C", "\u0623", "\u0643", "\u06B5", ":", "\"", "~", "|", "\u0636", "\u0635", "\u0686", "\u0638", "\u0649", "\u0629", "\u0640", ">", "<", "\u061F", "/"};
+    static final String[] LANGS = {"EN", "AR", "KU"};
+
     static class K {
-        String l, s, act, fl; int vk, kind, idx, st, pend, sc, fsc; float u, x, y, w, h, x2, y2, w2, h2; boolean on, rep, useFn, fnKey; long t0, t1;
+        String l, s, act, fl, uni; int vk, kind, idx, st, pend, sc, fsc; float u, x, y, w, h, x2, y2, w2, h2; boolean on, rep, useFn, fnKey; long t0, t1;
         K(String l, String s, int vk, float u, int kind) { this.l = l; this.s = s; this.vk = vk; this.u = u; this.kind = kind; }
     }
 
@@ -199,14 +206,15 @@ public class MainActivity extends Activity {
     class KbView extends View {
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG), t = new Paint(Paint.ANTI_ALIAS_FLAG); RectF rf = new RectF(), r2 = new RectF(); Path pa = new Path();
         List<List<K>> rows = new ArrayList<List<K>>(); List<K> all = new ArrayList<K>(), top = new ArrayList<K>(), deck = new ArrayList<K>(), mods = new ArrayList<K>();
-        K chip, slider, enter, fnKey; final float[] RH = {.85f, 1, 1, 1, 1, 1};
+        K chip, slider, enter, fnKey, langBtn; int lang; HashMap<Integer, String[]> arM = new HashMap<Integer, String[]>(), kuM = new HashMap<Integer, String[]>(); final float[] RH = {.85f, 1, 1, 1, 1, 1};
         HashMap<Integer, K> act = new HashMap<Integer, K>(); HashMap<Integer, Float> lx = new HashMap<Integer, Float>(); HashMap<Integer, Runnable> reps = new HashMap<Integer, Runnable>();
         HashSet<Integer> fired = new HashSet<Integer>(); Handler h = new Handler(Looper.getMainLooper());
         int th, hue; boolean hap; float vol = .5f, ux, uy, ox, oy, sacc; Shader bgs; String[][] dk = new String[10][3];
 
         KbView(Context cx) {
             super(cx); th = sp.getInt("th", 0); hue = sp.getInt("hue", 0); hap = sp.getBoolean("hap", true);
-            t.setTypeface(Typeface.DEFAULT_BOLD); loadDeck(); build();
+            t.setTypeface(Typeface.DEFAULT_BOLD); loadDeck(); build(); lang = sp.getInt("lang", 0);
+            for (int i = 0; i < LSC.length; i++) { arM.put(LSC[i], new String[]{AR_N[i], AR_S[i]}); kuM.put(LSC[i], new String[]{KU_N[i], KU_S[i]}); }
             h.post(new Runnable() { public void run() { invalidate(); h.postDelayed(this, 700); } });
         }
         float dp(float v) { return v * getResources().getDisplayMetrics().density; }
@@ -258,16 +266,18 @@ public class MainActivity extends Activity {
             r = new ArrayList<K>(); s(r, "Ctrl", null, 0x1D, 1.25f, 1); fnKey = s(r, "FN", null, 0, 1, 1); fnKey.fnKey = true; s(r, "Win", null, 0x15B, 1, 1); s(r, "Alt", null, 0x38, 1.25f, 1);
             s(r, "", null, 0x39, 4.65f, 0); s(r, "Alt", null, 0x138, 1, 1); s(r, "Menu", null, 0x15D, 1, 7); s(r, "Ctrl", null, 0x11D, 1, 1); s(r, "Insert", null, 0x152, 1, 7);
             s(r, "\u2190", null, 0x14B, 1, 7); s(r, "\u2193", null, 0x150, 1, 7); s(r, "\u2192", null, 0x14D, 1.25f, 7); rows.add(r);
-            chip = a(top, "", null, 0, 4.0f, 3); chip.act = "conn"; g(top, .3f);
+            chip = a(top, "", null, 0, 3.4f, 3); chip.act = "conn"; g(top, .3f);
             a(top, "", null, 0xB1, 1.1f, 2); a(top, "", null, 0xB3, 1.1f, 2); a(top, "", null, 0xB0, 1.1f, 2); a(top, "", null, 0xAD, 1.1f, 2); g(top, .3f);
-            a(top, "", null, 0xAE, 1.1f, 2).rep = true; slider = a(top, "", null, 0, 2.9f, 5); a(top, "", null, 0xAF, 1.1f, 2).rep = true; g(top, .3f);
-            K tb = a(top, "THEME", null, 0, 1.9f, 3); tb.act = "theme";
+            a(top, "", null, 0xAE, 1.1f, 2).rep = true; slider = a(top, "", null, 0, 2.5f, 5); a(top, "", null, 0xAF, 1.1f, 2).rep = true; g(top, .3f);
+            langBtn = a(top, "", null, 0, 1.2f, 3); langBtn.act = "lang"; K tb = a(top, "THEME", null, 0, 1.6f, 3); tb.act = "theme";
             for (int i = 0; i < 10; i++) { K k = new K("", null, 0, 1, 4); k.idx = i; deck.add(k); }
         }
         @Override protected void onSizeChanged(int W, int H, int ow, int oh) {
             float pad = W * 0.01f, kw = 16.4f; ux = (W - 2 * pad) / kw; uy = Math.min(H / 8.8f, ux * 1.18f);
             float tw = kw * ux; ox = (W - tw) / 2; oy = (H - 8.8f * uy) / 2;
-            float y = oy + .2f * uy, gp = .12f * ux, bw = (tw - 9 * gp) / 10;
+            float y = oy + .2f * uy, gp = .12f * ux, bw = (tw - 9 * gp) / 10, x0 = ox;
+            for (K k : top) { k.x = x0; k.y = y; k.w = k.u * ux; k.h = .85f * uy; x0 += k.w; }
+            y += 1.1f * uy;
             for (int i = 0; i < 10; i++) { K k = deck.get(i); k.x = ox + i * (bw + gp); k.y = y; k.w = bw; k.h = 1.05f * uy; }
             y += 1.3f * uy; float[] ry = new float[rows.size()];
             for (int ri = 0; ri < rows.size(); ri++) {
@@ -276,8 +286,6 @@ public class MainActivity extends Activity {
                 y += rh; if (ri == 0) y += .15f * uy;
             }
             enter.x2 = ox + 13.75f * ux; enter.y2 = ry[3]; enter.w2 = 1.4f * ux; enter.h2 = RH[3] * uy;
-            y += .25f * uy; float x = ox;
-            for (K k : top) { k.x = x; k.y = y; k.w = k.u * ux; k.h = .85f * uy; x += k.w; }
             makeBg();
         }
         void txt(Canvas c, String s, float cx, float cy, float maxW, float size, int col, Paint.Align al) {
@@ -324,10 +332,12 @@ public class MainActivity extends Activity {
                 String md = sp.getString("mode", "wifi"); txt(c, (md.equals("usb") ? "USB" : md.equals("bt") ? "Bluetooth" : "Wi-Fi") + " - " + link.status, k.x + k.h * .8f, cy, k.w - k.h, k.h * .32f, T.tx, Paint.Align.LEFT); return;
             }
             if (k.fnKey) tc = hi ? tc : ac;
+            if (k.act != null && k.act.equals("lang")) { txt(c, LANGS[lang], cx, cy, k.w * .8f, k.h * .42f, hi ? tc : ac, Paint.Align.CENTER); return; }
             if (k.l.length() == 0) return;
             if (fn && k.fl != null && !hi) { txt(c, k.fl, cx, cy, k.w * .8f, k.h * .5f, ac, Paint.Align.CENTER); return; }
-            if (k.s != null) { txt(c, k.s, cx, k.y + k.h * .33f, k.w * .7f, k.h * .26f, hi ? tc : (T.tx & 0x00FFFFFF) | 0x99000000, Paint.Align.CENTER); txt(c, k.l, cx, k.y + k.h * .68f, k.w * .8f, k.h * .34f, tc, Paint.Align.CENTER); }
-            else txt(c, k.l, cx, cy, k.w * .82f, k.h * (k.kind == 0 ? .4f : .27f), tc, Paint.Align.CENTER);
+            String[] fc = face(k); String ml = fc[0], sl = fc[1];
+            if (sl != null) { txt(c, sl, cx, k.y + k.h * .33f, k.w * .7f, k.h * .26f, hi ? tc : (T.tx & 0x00FFFFFF) | 0x99000000, Paint.Align.CENTER); txt(c, ml, cx, k.y + k.h * .68f, k.w * .8f, k.h * .34f, tc, Paint.Align.CENTER); }
+            else txt(c, ml, cx, cy, k.w * .82f, k.h * (k.kind == 0 ? .4f : .27f), tc, Paint.Align.CENTER);
             if (k.fl != null && !fn) txt(c, k.fl, k.x + k.w - k.w * .12f, k.y + k.h * .8f, k.w * .3f, k.h * .2f, (ac & 0x00FFFFFF) | 0xE0000000, Paint.Align.RIGHT);
             if (k.st == 2) { p.setColor(tc); c.drawRect(cx - k.w * .15f, k.y + k.h * .85f, cx + k.w * .15f, k.y + k.h * .88f, p); }
         }
@@ -344,6 +354,21 @@ public class MainActivity extends Activity {
                 txt(c, dk[k.idx][0], k.x + k.w / 2, k.y + k.h * .58f, k.w * .85f, k.h * .3f, k.on ? (lum(sc) > .6f ? 0xFF101010 : 0xFFFFFFFF) : T.tx, Paint.Align.CENTER);
             }
         }
+        String disp(String x) {
+            if (x == null) return null;
+            if (x.equals("\u200C")) return "ZWNJ";
+            if (x.length() == 1 && x.charAt(0) >= 0x064B && x.charAt(0) <= 0x0652) return "\u0640" + x;
+            return x;
+        }
+        String[] ent(K k) { if (lang == 0 || k.sc == 0) return null; return (lang == 1 ? arM : kuM).get(k.sc); }
+        boolean shiftOn() { for (K m : mods) if ((m.sc == 0x2A || m.sc == 0x36) && (m.st > 0 || m.on)) return true; return false; }
+        boolean hotMods() { for (K m : mods) if ((m.st > 0 || m.on) && (m.sc == 0x1D || m.sc == 0x11D || m.sc == 0x38 || m.sc == 0x138 || m.sc == 0x15B || m.sc == 0x15C)) return true; return false; }
+        String[] face(K k) {
+            String[] e = ent(k);
+            if (e == null) return new String[]{k.l, k.s};
+            return shiftOn() ? new String[]{disp(e[1]), disp(e[0])} : new String[]{disp(e[0]), disp(e[1])};
+        }
+        void cycleLang() { lang = (lang + 1) % 3; sp.edit().putInt("lang", lang).apply(); invalidate(); }
         void buzz() { if (hap) performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP); }
         void sendKey(int vk, boolean d) {
             link.send("K " + vk + (d ? " d" : " u"));
@@ -377,7 +402,7 @@ public class MainActivity extends Activity {
         }
         void releaseLatched() { for (K k : mods) if (k.st == 1) { sendK(k, false); k.st = 0; } }
         void startRep(final int id, final K k) {
-            Runnable r = new Runnable() { public void run() { if (k.on && act.get(id) == k) { sendK(k, true); h.postDelayed(this, 38); } } };
+            Runnable r = new Runnable() { public void run() { if (k.on && act.get(id) == k) { if (k.uni != null) link.send("T " + k.uni); else sendK(k, true); h.postDelayed(this, 38); } } };
             reps.put(id, r); h.postDelayed(r, 420);
         }
         boolean in(float a, float b, float w, float hh, float x, float y) { return x >= a && x < a + w && y >= b && y < b + hh; }
@@ -389,7 +414,11 @@ public class MainActivity extends Activity {
         }
         void down(final int id, float x, float y) {
             K k = hit(x, y); if (k == null) return; act.put(id, k); k.on = true; long now = SystemClock.uptimeMillis(); buzz();
-            if (k.kind == 0 || k.kind == 2 || k.kind == 7) { k.useFn = fnOn(); sendK(k, true); if (k.kind != 2 || k.rep) startRep(id, k); }
+            if (k.kind == 0 || k.kind == 2 || k.kind == 7) {
+                k.useFn = fnOn(); String[] e = ent(k); k.uni = null;
+                if (e != null && !hotMods() && !(k.useFn && k.fsc != 0)) { k.uni = shiftOn() ? e[1] : e[0]; link.send("T " + k.uni); } else sendK(k, true);
+                if (k.kind != 2 || k.rep) startRep(id, k);
+            }
             else if (k.kind == 1) {
                 if (k.st == 0) { sendK(k, true); k.pend = 1; k.t0 = now; } else if (k.st == 1) k.pend = (now - k.t1 < 450) ? 2 : 3; else k.pend = 3;
             } else if (k.kind == 5) lx.put(id, x);
@@ -406,12 +435,12 @@ public class MainActivity extends Activity {
         }
         void up(int id) {
             K k = act.remove(id); if (k == null) return; k.on = false; Runnable r = reps.remove(id); if (r != null) h.removeCallbacks(r); long now = SystemClock.uptimeMillis();
-            if (k.kind == 0 || k.kind == 2 || k.kind == 7) { sendK(k, false); if (k.kind == 0) releaseLatched(); }
+            if (k.kind == 0 || k.kind == 2 || k.kind == 7) { if (k.uni == null) sendK(k, false); k.uni = null; if (k.kind == 0) releaseLatched(); }
             else if (k.kind == 1) {
                 if (k.pend == 1) { if (now - k.t0 >= 300) { sendK(k, false); k.st = 0; } else { k.st = 1; k.t1 = now; } }
                 else if (k.pend == 2) k.st = 2; else if (k.pend == 3) { sendK(k, false); k.st = 0; }
                 k.pend = 0;
-            } else if (k.kind == 3) { if ("conn".equals(k.act)) connDialog(); else themeDialog(); }
+            } else if (k.kind == 3) { if ("conn".equals(k.act)) connDialog(); else if ("lang".equals(k.act)) cycleLang(); else themeDialog(); }
             else if (k.kind == 4) { if (!fired.remove(id)) runDeck(dk[k.idx]); }
         }
         @Override public boolean onTouchEvent(MotionEvent e) {
